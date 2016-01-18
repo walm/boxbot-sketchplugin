@@ -1,0 +1,96 @@
+//@import "library.cocoascript";
+
+var onRun = function(context) {
+
+  var doc = context.document;
+  var selectedLayers = context.selection;
+  var selectedCount = selectedLayers.count();
+  if (selectedCount == 0) {
+    var app = NSApplication.sharedApplication()
+    app.displayDialog_withTitle("Please select a layer in artboard to export coordinates for.", "Artboard missing")
+  } else {
+  
+    var json = "[";
+    var artboard = selectedLayers[0].parentGroup();
+    doc.showMessage("Generation coordinates for "+ artboard.name());
+
+    // group all centerdots
+    var centerDots = MSLayerGroup.alloc().init()
+    centerDots.setName("centers");
+    centerDots.frame = MSRect.rectWithRect(NSMakeRect(0,0,artboard.frame().width(),artboard.frame().height()));
+
+
+    var layers = artboard.layers();
+    for (var i = 0; i < layers.count(); i++) {
+          var layer = layers.objectAtIndex(i);
+      var name = layer.name();
+
+      // remove old centerdot group
+      if (name == "centers") {
+        artboard.removeLayer(layer);
+      } else {
+        var x = layer.frame().x();
+        var y = layer.frame().y();
+        var w = layer.frame().width();
+        var h = layer.frame().height();
+        var a = layer.rotation();
+
+        //log(layer);
+        // log((i+1) + '. ' + name);
+        // log("x:" + x);
+        // log("y:" + y);
+        // log("w:" + w);
+        // log("h:" + h);
+        // log("a:" + a);
+
+        var centerX = (w/3) + x;
+        var centerY = (y + h) - (h/3);
+        if (a == 180) {
+          centerX = (x + w) - (w/3);
+          centerY = (h/3) + y;
+        }
+
+        //log("cx:"+ centerX);
+        //log("cy:"+ centerY);
+
+        // generate JSON
+        json += "{";
+        json +="\"layer\":\""+ name +"\"";
+        json += ",";
+        json += "\"x\":"+ Math.round(centerX);
+        json += ",";
+        json += "\"y\":"+ Math.round(centerY);
+        json += ",";
+        json += "\"a\":"+ a;
+        json += "},";
+
+        // add centerdot for layer
+        var centerDot = MSOvalShape.alloc().init();
+        centerDot.frame = MSRect.rectWithRect(NSMakeRect(centerX-5,centerY-5,10,10));
+        centerDot.setName(layer.name() + "-center");
+        var shapeGroup=MSShapeGroup.shapeWithPath(centerDot);
+        var fill = shapeGroup.style().fills().addNewStylePart();
+        fill.color = MSColor.colorWithSVGString("#dd2020");
+        centerDots.addLayers([shapeGroup]);
+      }
+    }
+   
+    json += "{}]";
+
+    // add the centerdot group to artboard
+    artboard.addLayers([centerDots]);
+
+    var savePanel = [NSSavePanel savePanel];
+      [savePanel setNameFieldStringValue:artboard.name()];
+      savePanel.allowedFileTypes = [@"json"];
+      var result = savePanel.runModal();
+    if (result == NSOKButton) {
+          var saveURL = [[savePanel URL] path];
+            log(saveURL);
+      var output = [NSString stringWithString:json];
+      [output writeToFile:saveURL atomically:false]; 
+    }
+      
+  }
+
+};
