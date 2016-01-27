@@ -2,69 +2,63 @@
 
 var onRun = function(context) {
 
+  var showCenter = false;
+  var app = NSApplication.sharedApplication()
   var doc = context.document;
-  var selectedLayers = context.selection;
-  var selectedCount = selectedLayers.count();
-  if (selectedCount == 0) {
-    var app = NSApplication.sharedApplication()
-    app.displayDialog_withTitle("Please select a layer in artboard to export coordinates for.", "Artboard missing")
-  } else {
-  
-    var json = "[";
-    var artboard = selectedLayers[0].parentGroup();
-    doc.showMessage("Generation coordinates for "+ artboard.name());
+  var pages = doc.pages();
+
+  var moves = [];
+  var pagesKeys = [];
+  var pagesCords = [];
+  for (var p = 0; p < pages.count(); p++) {
+    var artboard = pages.objectAtIndex(p).artboards().objectAtIndex(0);
 
     // group all centerdots
     var centerDots = MSLayerGroup.alloc().init()
     centerDots.setName("centers");
     centerDots.frame = MSRect.rectWithRect(NSMakeRect(0,0,artboard.frame().width(),artboard.frame().height()));
 
-
+    // get coords from all layers
+    var pageKeys = [];
+    var pageCords = {};
     var layers = artboard.layers();
-    for (var i = 0; i < layers.count(); i++) {
-          var layer = layers.objectAtIndex(i);
-      var name = layer.name();
+    for (var l = 0; l < layers.count(); l++) {
+      var layer = layers.objectAtIndex(l);
 
-      // remove old centerdot group
-      if (name == "centers") {
+      if (layer.name() == "centers") {
         artboard.removeLayer(layer);
-      } else {
-        var x = layer.frame().x();
-        var y = layer.frame().y();
-        var w = layer.frame().width();
-        var h = layer.frame().height();
-        var a = layer.rotation();
+        continue;
+      }
 
-        //log(layer);
-        // log((i+1) + '. ' + name);
-        // log("x:" + x);
-        // log("y:" + y);
-        // log("w:" + w);
-        // log("h:" + h);
-        // log("a:" + a);
+      var x = layer.frame().x();
+      var y = layer.frame().y();
+      var w = layer.frame().width();
+      var h = layer.frame().height();
+      var a = layer.rotation();
 
-        var centerX = (w/3) + x;
-        var centerY = (y + h) - (h/3);
-        if (a == 180) {
-          centerX = (x + w) - (w/3);
-          centerY = (h/3) + y;
-        }
+      // seems Sketch outupt angles reversed, so 90 is 270 and 270 is 90
+      if (a == 90) a = 270;
+      else if (a == 270) a = 90;
 
-        //log("cx:"+ centerX);
-        //log("cy:"+ centerY);
+      var centerX = (w/3) + x;
+      var centerY = (y + h) - (h/3);
+      if (a == 90) {
+        centerX = (w/3) + x;
+        centerY = (h/3) + y;
+      }
+      if (a == 180) {
+        centerX = (x + w) - (w/3);
+        centerY = (h/3) + y;
+      }
+      if (a == 270) {
+        centerX = (x + w) - (w/3);
+        centerY = (y + h) - (h/3);
+      }
+      centerX = Math.round(centerX);
+      centerY = Math.round(centerY);
 
-        // generate JSON
-        json += "{";
-        json +="\"layer\":\""+ name +"\"";
-        json += ",";
-        json += "\"x\":"+ Math.round(centerX);
-        json += ",";
-        json += "\"y\":"+ Math.round(centerY);
-        json += ",";
-        json += "\"a\":"+ a;
-        json += "},";
-
-        // add centerdot for layer
+      // add centerdot for layer
+      if (showCenter) {
         var centerDot = MSOvalShape.alloc().init();
         centerDot.frame = MSRect.rectWithRect(NSMakeRect(centerX-5,centerY-5,10,10));
         centerDot.setName(layer.name() + "-center");
@@ -73,24 +67,94 @@ var onRun = function(context) {
         fill.color = MSColor.colorWithSVGString("#dd2020");
         centerDots.addLayers([shapeGroup]);
       }
+
+      var posKey = centerX +"-"+ centerY +"-"+ a;
+      pageKeys.push(posKey);
+      pageCords[posKey] = {
+        x: centerX,
+        y: centerY,
+        a: a
+      };
     }
-   
-    json += "{}]";
+    // compare coords with previous page to get from and to pos
+    if (p > 0) {
+      var prevPageKeys = pagesKeys[p-1];
+      var prevPageCords = pagesCords[p-1];
+
+      // from pos
+      var fromPos = null;
+      for (var k = 0; k < prevPageKeys.length; k++) {
+        var key = prevPageKeys[k];
+        if (pageCords[key] == null) {
+          if (fromPos != null) {
+            // Error more then one move in page
+            app.displayDialog_withTitle("More then one move on page "+ (p+1), "Error")
+            return;
+          } else {
+            fromPos = prevPageCords[key];
+          }
+        }
+      }
+
+      // to pos
+      var toPos = null;
+      for (var k = 0; k < pageKeys.length; k++) {
+        var key = pageKeys[k];
+        if (prevPageCords[key] == null) {
+          toPos = pageCords[key];
+          break;
+        }
+      }
+      // output move command as from -> to
+      moves.push({ from: fromPos, to: toPos });
+    }
+
+    pagesKeys[p] = pageKeys;
+    pagesCords[p] = pageCords;
 
     // add the centerdot group to artboard
-    artboard.addLayers([centerDots]);
-
-    var savePanel = [NSSavePanel savePanel];
-      [savePanel setNameFieldStringValue:artboard.name()];
-      savePanel.allowedFileTypes = [@"json"];
-      var result = savePanel.runModal();
-    if (result == NSOKButton) {
-          var saveURL = [[savePanel URL] path];
-            log(saveURL);
-      var output = [NSString stringWithString:json];
-      [output writeToFile:saveURL atomically:false]; 
+    if (showCenter) {
+      artboard.addLayers([centerDots]);
     }
-      
+  }
+  // log(moves);
+
+  // output to NC coordinate file
+  //Xx Yx Ax
+  //M9 (mag off)
+  //Z0 (down)
+  //M8 (mag on)
+  //Z10 (up)
+
+  var output = "";
+  for (var m = 0; m < moves.length; m++) {
+    var pos = moves[m];
+
+    // from
+    output += "X"+ pos.from.x +" Y"+ pos.from.y +" A"+ pos.from.a +"\n";
+    output += "M9\n"; // magnet off
+    output += "Z0\n"; // down
+    output += "M8\n"; // magnet on
+    output += "Z10\n"; // up
+    output += "\n";
+
+    // to
+    output += "X"+ pos.to.x +" Y"+ pos.to.y +" A"+ pos.to.a +"\n";
+    output += "Z0\n"; // down
+    output += "M9\n"; // magnet off
+    output += "Z10\n"; // up
+    output += "\n";
+
+  }
+
+  var savePanel = [NSSavePanel savePanel];
+  [savePanel setNameFieldStringValue:@"moves"];
+  savePanel.allowedFileTypes = [@"nc"];
+  var result = savePanel.runModal();
+  if (result == NSOKButton) {
+    var saveURL = [[savePanel URL] path];
+    var fileData = [NSString stringWithString:output];
+    [fileData writeToFile:saveURL atomically:false]; 
   }
 
 };
