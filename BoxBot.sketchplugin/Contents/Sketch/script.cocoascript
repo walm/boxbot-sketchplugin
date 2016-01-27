@@ -11,7 +11,9 @@ var onRun = function(context) {
   var pagesKeys = [];
   var pagesCords = [];
   for (var p = 0; p < pages.count(); p++) {
-    var artboard = pages.objectAtIndex(p).artboards().objectAtIndex(0);
+    var page = pages.objectAtIndex(p);
+    var pageName = page.name();
+    var artboard = page.artboards().objectAtIndex(0);
 
     // group all centerdots
     var centerDots = MSLayerGroup.alloc().init()
@@ -36,23 +38,40 @@ var onRun = function(context) {
       var h = layer.frame().height();
       var a = layer.rotation();
 
-      // seems Sketch outupt angles reversed, so 90 is 270 and 270 is 90
-      if (a == 90) a = 270;
-      else if (a == 270) a = 90;
+      if (layer.isFlippedVertical() == 1 && layer.isFlippedHorizontal() == 1) {
+        if (a == 0) a = 180;
+        else if (a == 180) a = 0;
+        else if (a == 270) a = 90;
+        else if (a == 90) a = 270;
+
+      } else if (layer.isFlippedVertical() == 1) {
+        if (a == 0) a = 90;
+        else if (a == 90) a = 0;
+        else if (a == 180) a = 270;
+        else if (a == 270) a = 180;
+
+      } else if (layer.isFlippedHorizontal() == 1) {
+        if (a == 0) a = 270;
+        else if (a == 270) a = 0;
+        else if (a == 90) a = 180;
+        else if (a == 180) a = 90;
+      }
+
 
       var centerX = (w/3) + x;
-      var centerY = (y + h) - (h/3);
+      var centerY = (h/3) + y;
+
       if (a == 90) {
         centerX = (w/3) + x;
-        centerY = (h/3) + y;
+        centerY = (y + h) - (h/3);
       }
       if (a == 180) {
         centerX = (x + w) - (w/3);
-        centerY = (h/3) + y;
+        centerY = (y + h) - (h/3);
       }
       if (a == 270) {
         centerX = (x + w) - (w/3);
-        centerY = (y + h) - (h/3);
+        centerY = (h/3) + y;
       }
       centerX = Math.round(centerX);
       centerY = Math.round(centerY);
@@ -60,7 +79,7 @@ var onRun = function(context) {
       // add centerdot for layer
       if (showCenter) {
         var centerDot = MSOvalShape.alloc().init();
-        centerDot.frame = MSRect.rectWithRect(NSMakeRect(centerX-5,centerY-5,10,10));
+        centerDot.frame = MSRect.rectWithRect(NSMakeRect(centerX,centerY,1,1));
         centerDot.setName(layer.name() + "-center");
         var shapeGroup=MSShapeGroup.shapeWithPath(centerDot);
         var fill = shapeGroup.style().fills().addNewStylePart();
@@ -69,6 +88,7 @@ var onRun = function(context) {
       }
 
       var posKey = centerX +"-"+ centerY +"-"+ a;
+      //log(p +":"+ l +" "+ posKey +" "+ layer.name() +" h:"+ layer.isFlippedHorizontal() +" v:"+ layer.isFlippedVertical());
       pageKeys.push(posKey);
       pageCords[posKey] = {
         x: centerX,
@@ -106,7 +126,7 @@ var onRun = function(context) {
         }
       }
       // output move command as from -> to
-      moves.push({ from: fromPos, to: toPos });
+      moves.push({ page: p, pageName: pageName, from: fromPos, to: toPos });
     }
 
     pagesKeys[p] = pageKeys;
@@ -154,7 +174,7 @@ var onRun = function(context) {
   if (result == NSOKButton) {
     var saveURL = [[savePanel URL] path];
     var fileData = [NSString stringWithString:output];
-    [fileData writeToFile:saveURL atomically:false]; 
+    [fileData writeToFile:saveURL atomically:false];
   }
 
 };
