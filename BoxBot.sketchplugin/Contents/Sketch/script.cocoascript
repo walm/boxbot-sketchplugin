@@ -58,20 +58,20 @@ var onRun = function(context) {
       }
 
 
-      var centerX = (w/3) + x;
-      var centerY = (h/3) + y;
+      var centerX = (w/3) + x - 5; // pick up point is not centroid, it's a diff of 5
+      var centerY = (h/3) + y - 5;
 
       if (a == 90) {
-        centerX = (w/3) + x;
-        centerY = (y + h) - (h/3);
+        centerX = (w/3) + x - 5;
+        centerY = (y + h) - (h/3) + 5;
       }
       if (a == 180) {
-        centerX = (x + w) - (w/3);
-        centerY = (y + h) - (h/3);
+        centerX = (x + w) - (w/3) + 5;
+        centerY = (y + h) - (h/3) + 5;
       }
       if (a == 270) {
-        centerX = (x + w) - (w/3);
-        centerY = (h/3) + y;
+        centerX = (x + w) - (w/3) + 5;
+        centerY = (h/3) + y - 5;
       }
       centerX = Math.round(centerX);
       centerY = Math.round(centerY);
@@ -137,7 +137,6 @@ var onRun = function(context) {
       artboard.addLayers([centerDots]);
     }
   }
-  // log(moves);
 
   // output to NC coordinate file
   //Xx Yx Ax
@@ -150,8 +149,11 @@ var onRun = function(context) {
   for (var m = 0; m < moves.length; m++) {
     var pos = moves[m];
 
+    // movment pos has origon from bottom left corner center dot.
+    // thats a diff of 15 and reversed y scale
+
     // from
-    output += "X"+ pos.from.x +" Y"+ pos.from.y +" A"+ pos.from.a +"\n";
+    output += "X"+ (pos.from.x - 15) +" Y"+ (270 - (pos.from.y - 15)) +" A"+ pos.from.a +"\n";
     output += "M9\n"; // magnet off
     output += "Z0\n"; // down
     output += "M8\n"; // magnet on
@@ -159,10 +161,11 @@ var onRun = function(context) {
     output += "\n";
 
     // to
-    output += "X"+ pos.to.x +" Y"+ pos.to.y +" A"+ pos.to.a +"\n";
+    output += "X"+ (pos.to.x - 15) +" Y"+ (270 - (pos.to.y - 15)) +" A"+ pos.to.a +"\n";
     output += "Z0\n"; // down
     output += "M9\n"; // magnet off
     output += "Z10\n"; // up
+    output += "M8\n"; // magnet on
     output += "\n";
 
   }
