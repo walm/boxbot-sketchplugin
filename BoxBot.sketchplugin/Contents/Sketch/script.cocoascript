@@ -153,7 +153,7 @@ var onRun = function(context) {
     // thats a diff of 15 and reversed y scale
 
     // from
-    output += "X"+ (pos.from.x - 15) +" Y"+ (270 - (pos.from.y - 15)) +" A"+ pos.from.a +"\n";
+    output += "X"+ (pos.from.x - 15) +" Y"+ (270 - (pos.from.y - 15)) +"\nA"+ pos.from.a +"\n";
     output += "M9\n"; // magnet off
     output += "Z0\n"; // down
     output += "M8\n"; // magnet on
@@ -161,7 +161,7 @@ var onRun = function(context) {
     output += "\n";
 
     // to
-    output += "X"+ (pos.to.x - 15) +" Y"+ (270 - (pos.to.y - 15)) +" A"+ pos.to.a +"\n";
+    output += "X"+ (pos.to.x - 15) +" Y"+ (270 - (pos.to.y - 15)) +"\nA"+ pos.to.a +"\n";
     output += "Z0\n"; // down
     output += "M9\n"; // magnet off
     output += "Z10\n"; // up
