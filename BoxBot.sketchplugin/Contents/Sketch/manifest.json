@@ -16,7 +16,7 @@
     ],
   },
   "identifier" : "net.walm.sketch.boxbot",
-  "version" : "0.4",
+  "version" : "0.5",
   "description" : "Plugin to create json coordinate file for the Box Robot",
   "authorEmail" : "andreas@walm.net",
   "name" : "BoxBot"

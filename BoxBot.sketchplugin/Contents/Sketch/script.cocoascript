@@ -13,6 +13,11 @@ var onRun = function(context) {
   for (var p = 0; p < pages.count(); p++) {
     var page = pages.objectAtIndex(p);
     var pageName = page.name();
+    if (page.artboards().count() == 0) {
+      app.displayDialog_withTitle("Missing artboard on page "+ (p+1), "Error");
+      return;
+    }
+
     var artboard = page.artboards().objectAtIndex(0);
 
     // group all centerdots
